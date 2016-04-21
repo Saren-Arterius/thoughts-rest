@@ -1,0 +1,17 @@
+{
+  "development": {
+    "redis_host": "127.0.0.1",
+    "redis_db": 12,
+    "redis_prefix": "thought-app-rest:"
+  },
+  "test": {
+    "redis_host": "127.0.0.1",
+    "redis_db": 13,
+    "redis_prefix": "thought-app-rest:"
+  },
+  "production": {
+    "redis_host": "127.0.0.1",
+    "redis_db": 14,
+    "redis_prefix": "thought-app-rest:"
+  }
+}
