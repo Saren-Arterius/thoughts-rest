@@ -12,7 +12,7 @@ var isMatch = function (thought, queries) {
   var lc = thought.content.toLowerCase();
   for (var i in queries) {
     for (var j in thought.hashTags) {
-      if (thought.hashTags[j].toLowerCase() === queries[i]) {
+      if (thought.hashTags[j].toLowerCase() === queries[i].toLowerCase()) {
         return true;
       }
     }
