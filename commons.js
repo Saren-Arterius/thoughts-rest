@@ -87,14 +87,20 @@ module.exports = {
   },
   calcRating: function (id, cb) {
     redisClient.hvals(config.redis_prefix + 'votes-' + id).then(function (scores) {
-      var sum = 0;
+      console.log(scores);
+      var upvotes = 0;
+      var downvotes = 0;
       if (scores) {
         scores.forEach(function (score) {
-          sum += parseInt(score, 10);
+          if (parseInt(score, 10) === 1) {
+            upvotes++;
+          } else {
+            downvotes++;
+          }
         });
       }
-      cb(sum);
-      return redisClient.set(config.redis_prefix + 'rating-' + id, sum);
+      cb(upvotes, downvotes);
+      return redisClient.set(config.redis_prefix + 'rating-' + id, JSON.stringify([upvotes, downvotes]));
     }).catch(function (err) {
       throw err;
     });
@@ -102,10 +108,30 @@ module.exports = {
   cachedCalcRating: function (id, cb) {
     var self = this;
     redisClient.get(config.redis_prefix + 'rating-' + id).then(function (rating) {
-      if (rating) return cb(parseInt(rating, 10));
+      if (rating) {
+        var obj = JSON.parse(rating);
+        return cb(obj[0], obj[1]);
+      }
       self.calcRating(id, cb);
     }).catch(function (err) {
       throw err;
     });
+  },
+  clearViewCache: function (req, res, next) {
+    redisClient.keys(config.redis_prefix + 'thoughts:*').then(function (keys) {
+      redisClient.multi();
+      keys.forEach(function (key) {
+        redisClient.del(key);
+      });
+      return redisClient.exec();
+    }).then(function (results) {
+      console.log(results);
+    });
+  },
+  noCache: function (req, res, next) {
+    res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    res.header('Expires', '-1');
+    res.header('Pragma', 'no-cache');
+    next();
   }
 };

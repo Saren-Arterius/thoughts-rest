@@ -56,6 +56,7 @@ var invokeGCM = function (req, res, next) {
       else console.log(response);
     });
   });
+  next();
 };
 
 var checkToken = function (req, res, next) {
@@ -63,8 +64,9 @@ var checkToken = function (req, res, next) {
   commons.redis.hget(config.redis_prefix + 'thoughts', req.params.id).then(function (thoughtJSON) {
     var thought = JSON.parse(thoughtJSON);
     if (thought.adminToken !== req.params.adminToken) {
-      res.status(401).send('Wrong admin token.');
+      return res.status(401).send('Wrong admin token.');
     }
+    req.oldThoughtDate = thought.date;
     next();
   });
 };
@@ -84,9 +86,9 @@ var findIDByToken = function (req, res, next) {
       }
       return next();
     });
-  } else {
-    next();
+    return;
   }
+  next();
 };
 
 router.put('/', checkInput, commons.rateLimit('new', 2, 60), makeThoughtObject, function (req, res, next) {
@@ -98,8 +100,8 @@ router.put('/', checkInput, commons.rateLimit('new', 2, 60), makeThoughtObject, 
     commons.redis.hset(config.redis_prefix + 'votes-' + req.params.id, commons.getIP(req), 1);
     return commons.redis.exec();
   }).then(function (result) {
-    commons.cachedCalcRating(req.params.id, function (rating) {
-      req.thought.rating = rating;
+    commons.cachedCalcRating(req.params.id, function (upvotes, downvotes) {
+      req.thought.rating = upvotes - downvotes;
       res.send({
         success: true,
         thought: req.thought
@@ -109,13 +111,13 @@ router.put('/', checkInput, commons.rateLimit('new', 2, 60), makeThoughtObject, 
   }).catch(function (err) {
     throw err;
   });
-}, invokeGCM);
+}, invokeGCM, commons.clearViewCache);
 
 router.post('/:id/:adminToken', checkInput, findIDByToken, commons.checkThoughtExists, checkToken, makeThoughtObject, function (req, res, next) {
   req.thought.id = parseInt(req.params.id, 10);
   commons.redis.hset(config.redis_prefix + 'thoughts', req.params.id, JSON.stringify(req.thought)).then(function (result) {
-    commons.cachedCalcRating(req.params.id, function (rating) {
-      req.thought.rating = rating;
+    commons.cachedCalcRating(req.params.id, function (upvotes, downvotes) {
+      req.thought.rating = upvotes - downvotes;
       res.send({
         success: true,
         thought: req.thought
@@ -126,7 +128,7 @@ router.post('/:id/:adminToken', checkInput, findIDByToken, commons.checkThoughtE
   });
 });
 
-router.delete('/:id/:adminToken', commons.checkThoughtExists, checkToken, function (req, res, next) {
+router.delete('/:id/:adminToken', function (req, res, next) {
   commons.redis.multi();
   commons.redis.hdel(config.redis_prefix + 'thoughts', req.params.id);
   commons.redis.del(config.redis_prefix + 'votes-' + req.params.id);
@@ -137,14 +139,15 @@ router.delete('/:id/:adminToken', commons.checkThoughtExists, checkToken, functi
     res.send({
       success: true
     });
+    next();
   });
-});
+}, commons.clearViewCache);
 
 var sendThought = function (req, res, next) {
   commons.redis.hget(config.redis_prefix + 'thoughts', req.params.id).then(function (thoughtJSON) {
     var thought = JSON.parse(thoughtJSON);
-    commons.cachedCalcRating(req.params.id, function (rating) {
-      thought.rating = rating;
+    commons.cachedCalcRating(req.params.id, function (upvotes, downvotes) {
+      thought.rating = upvotes - downvotes;
       delete thought.adminToken;
       res.send({
         success: true,

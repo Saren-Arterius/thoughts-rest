@@ -1,25 +1,58 @@
 var express = require('express');
+var commons = require('../commons');
+var config = require('../config');
 var router = express.Router();
 
+var checkBody = function (req, res, next) {
+  if (isNaN(req.body.page) || parseInt(req.body.page, 10) < 0) return res.status(400).send('Page is not valid.');
+  next();
+};
 
-
-router.post('/', function (req, res, next) {
-  console.log(req.body.query);
-  var thoughts = [];
-  for (var i = 45; i >= 0; i--) {
-    thoughts.push({
-      id: i,
-      title: req.body.query,
-      content: 'Lorem **ipsum** *dolor* _sit_ amet, consectetur adipiscing elit. Nullam ultricies pharetra elit a tempor. Nullam orci urna, convallis a porta in, sodales eget odio. Sed imperdiet lorem nec bibendum auctor. Quisque dolor tellus, fermentum id auctor faucibus, tincidunt vel ipsum. Morbi et auctor justo, non dictum risus. Vestibulum vitae neque non dolor ullamcorper ultrices a a urna. Nulla vitae lorem tempor arcu consequat lobortis.',
-      rating: 10,
-      hashTags: ['hash1', 'hash2', 'asd', 'cvv', 'sdfsdf', 'dsf', 'svsxf', '2345redg'],
-      date: 1400000000000
-    });
+var isMatch = function (thought, queries) {
+  var lc = thought.content.toLowerCase();
+  for (var i in queries) {
+    for (var j in thought.hashTags) {
+      if (thought.hashTags[j].toLowerCase() === queries[i]) {
+        return true;
+      }
+    }
+    if (lc.indexOf(queries[i]) !== -1) {
+      return true;
+    }
   }
-  res.send({
-    success: true,
-    hasMore: req.body.page < 5,
-    thoughts: thoughts.slice(req.body.page * 10, (req.body.page * 10) + 10)
+  return false;
+};
+
+router.post('/', checkBody, function (req, res, next) {
+  var matches = [];
+  var queries = req.body.query.split(/,|\s+/);
+  var validQueries = [];
+  var validQueriesLower = [];
+  queries.forEach(function (query) {
+    query = query.trim();
+    if (!query || validQueriesLower.indexOf(query.toLowerCase()) !== -1) {
+      return;
+    }
+    if (query.charAt(0) === '#') {
+      validQueries.push(query.substr(1));
+      validQueriesLower.push(query.substr(1).toLowerCase());
+    } else {
+      validQueries.push(query);
+      validQueriesLower.push(query.toLowerCase());
+    }
+  });
+  commons.redis.hvals(config.redis_prefix + 'thoughts').then(function (thoughts) {
+    for (var i = thoughts.length - 1; i >= 0; i--) {
+      var thought = JSON.parse(thoughts[i]);
+      if (isMatch(thought, validQueries)) {
+        matches.push(thought);
+      }
+    }
+    res.send({
+      success: true,
+      hasMore: matches.length > req.body.page * 10 + 10,
+      thoughts: matches.slice(req.body.page * 10, (req.body.page * 10) + 10)
+    });
   });
 });
 

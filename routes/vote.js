@@ -9,14 +9,15 @@ router.post('/:upOrDown/:id', commons.checkThoughtExists, function (req, res, ne
   commons.redis.hset(config.redis_prefix + 'votes-' + req.params.id,
       commons.getIP(req), req.params.upOrDown === 'up' ? 1 : -1)
     .then(function (result) {
-      commons.calcRating(req.params.id, function (rating) {
+      commons.calcRating(req.params.id, function (upvotes, downvotes) {
         res.send({
           success: true,
           id: parseInt(req.params.id, 10),
-          new_score: rating
+          new_score: upvotes - downvotes
         });
+        next();
       });
     });
-});
+}, commons.clearViewCache);
 
 module.exports = router;
