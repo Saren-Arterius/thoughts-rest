@@ -97,10 +97,10 @@ router.put('/', checkInput, commons.rateLimit('new', 2, 60), makeThoughtObject, 
     commons.redis.multi();
     commons.redis.incrby(config.redis_prefix + 'next-id', !nextID ? 2 : 1);
     commons.redis.hset(config.redis_prefix + 'thoughts', req.thought.id, JSON.stringify(req.thought));
-    commons.redis.hset(config.redis_prefix + 'votes-' + req.params.id, commons.getIP(req), 1);
+    commons.redis.hset(config.redis_prefix + 'votes-' + req.thought.id, commons.getIP(req), 1);
     return commons.redis.exec();
   }).then(function (result) {
-    commons.cachedCalcRating(req.params.id, function (upvotes, downvotes) {
+    commons.cachedCalcRating(req.thought.id, function (upvotes, downvotes) {
       req.thought.rating = upvotes - downvotes;
       res.send({
         success: true,
