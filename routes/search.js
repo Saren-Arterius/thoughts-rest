@@ -12,7 +12,7 @@ var isMatch = function (thought, queries) {
   var lc = thought.content.toLowerCase();
   for (var i in queries) {
     for (var j in thought.hashTags) {
-      if (thought.hashTags[j].toLowerCase() === queries[i].toLowerCase()) {
+      if (thought.hashTags[j].toLowerCase() === queries[i]) {
         return true;
       }
     }
@@ -27,18 +27,15 @@ router.post('/', checkBody, function (req, res, next) {
   var matches = [];
   var queries = req.body.query.split(/,|\s+/);
   var validQueries = [];
-  var validQueriesLower = [];
   queries.forEach(function (query) {
-    query = query.trim();
-    if (!query || validQueriesLower.indexOf(query.toLowerCase()) !== -1) {
+    query = query.trim().toLowerCase();
+    if (!query || validQueries.indexOf(query) !== -1) {
       return;
     }
     if (query.charAt(0) === '#') {
       validQueries.push(query.substr(1));
-      validQueriesLower.push(query.substr(1).toLowerCase());
     } else {
       validQueries.push(query);
-      validQueriesLower.push(query.toLowerCase());
     }
   });
   commons.redis.hvals(config.redis_prefix + 'thoughts').then(function (thoughts) {
