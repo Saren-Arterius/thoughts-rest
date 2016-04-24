@@ -1,6 +1,7 @@
 var express = require('express');
 var commons = require('../commons');
 var config = require('../config');
+var md5 = require('md5');
 var router = express.Router();
 
 var gcm = require('node-gcm');
@@ -50,7 +51,7 @@ var invokeGCM = function (req, res, next) {
     });
 
     sender.send(message, {
-      topic: '/topics/' + hashTag.toLowerCase()
+      topic: '/topics/' + md5(hashTag.toLowerCase())
     }, function (err, response) {
       if (err) console.error(err);
       else console.log(response);
